@@ -1,7 +1,4 @@
 import bluetooth
-import random
-import struct
-import time
 from machine import Pin, PWM, ADC, UART
 from time import sleep
 from ble_advertising import advertising_payload
@@ -79,6 +76,7 @@ bt = BLESimplePeripheral(ble)
 
 def on_rx(value):
     print(f"RX{value}")
+    base.duty_u16(analog_to_pwm_duty_cycle(int(value)))
 
 bt.on_write(on_rx)
 
@@ -92,10 +90,7 @@ led = Pin("LED",Pin.OUT)
 # bottom : 6000 - 3000
 # middle : full
 # top : full
-# hand : 1670 - 2500 (close - open)while True:
-#     knob_val = knob.read_u16()
-#     base.duty_u16(analog_to_pwm_duty_cycle(knob_val))
-#     sleep(0.02)
+# hand : 1670 - 2500 (close - open)
 
 knob = ADC(Pin("GP28", Pin.PULL_UP))
 
@@ -112,7 +107,7 @@ def analog_to_pwm_duty_cycle(analog_value,  pulse_min=500, pulse_max=2500, pwm_f
 
 while True:
     knob_val = knob.read_u16()
-    base.duty_u16(analog_to_pwm_duty_cycle(knob_val))
+    # base.duty_u16(analog_to_pwm_duty_cycle(knob_val))
     if bt.is_connected():
         led.on()
     else:
