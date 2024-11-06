@@ -1,7 +1,5 @@
 import asyncio
 from bleak import BleakScanner, BleakClient
-from itertools import count, takewhile
-from typing import Iterator
 
 
 async def main():
@@ -17,27 +15,14 @@ async def main():
         print("Couldn't find robotic arm")
         return
 
-    uart_service_uuid = ""
-    rx_uuid = ""
-    tx_uuid = ""
+    uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+    # double check which should be rx and tx
+    tx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+    rx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 
     
     async with BleakClient(pico) as client:
-        for service in client.services:
-            if "UART" in service.description:
-                uart_service_uuid = service.uuid
-                print(f"UART Service UUID: {uart_service_uuid}")
 
-                for characteristic in service.characteristics:
-                    if "RX" in characteristic.description:
-                        rx_uuid = characteristic.uuid
-                        print(f"RX UUID: {rx_uuid}")
-                        print(characteristic.properties)
-                    if "TX" in characteristic.description:
-                        tx_uuid = characteristic.uuid
-                        print(f"TX UUID: {tx_uuid}")
-                        print(characteristic.properties)
-    
         while True:
             await client.write_gatt_char(
                 rx_uuid,
