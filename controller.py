@@ -9,8 +9,8 @@ rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 
 pico = None
-slider_value = 0 # Stores the latest slider value
-last_sent_value = None # Keeps track of the last sent value to avoid unnecessary updates
+slider_values = [0, 0, 0, 0]
+last_sent_values = [None, None, None, None]
 
 async def connect_device():
     global pico
@@ -35,44 +35,53 @@ async def connect_device():
         print(f"Failed to connect \n {e}")
         return False
 
-async def send_value(value):
+async def send_value(slider_num, value):
     if pico and pico.is_connected:
         try:
-            await pico.write_gatt_char(tx_uuid, str(value).encode())
-            print(f"Sent value {value}")
+            await pico.write_gatt_char(tx_uuid, f"{slider_num}:{value}".encode())
+            print(f"Sent value {slider_num}:{value}")
         except Exception as e:
             print(f"Failed to send value \n {e}")
     else:
         print(f"Pico not connected but here's the command: {value}")
 
-def on_slider_change(value):
-    global slider_value
-    slider_value = int(float(value))  # Update the buffered slider value
+def make_slider_function(slider_num):
+    def on_slider_change(value):
+        slider_values[slider_num - 1] = int(float(value))
+    return on_slider_change
 
 async def periodic_send():
-    global last_sent_value, slider_value
+    global last_sent_values, slider_values
 
     while True:
-        if slider_value != last_sent_value:  # Send only if value has changed
-            await send_value(f"1:{slider_value}")
-            last_sent_value = slider_value
-        await asyncio.sleep(0.2)  # Send data every 200 milliseconds
+        for i in range(4):
+            if slider_values[i] != last_sent_values[i]: # Send only if value has changed
+                await send_value(i + 1, slider_values[i])
+                last_sent_values[i] = slider_values[i]
+        await asyncio.sleep(0.2)
 
 def run_tk():
     root = tk.Tk()
-    root.title("Bluetooth Slider Control")
+    root.title("Bluetooth Robot Control")
 
-    label = tk.Label(root, text="Slider Value :")
-    label.pack(pady=10)
+    labels = []
+    sliders = []
 
-    slider = ttk.Scale(root, from_=0, to=65535, orient="horizontal", command=on_slider_change)
-    slider.pack(pady=20, padx=20)
+    for i in range(4):
+        label = tk.Label(root, text=f"Slider {i + 1} Value : 0")
+        label.pack(pady=5)
+        labels.append(label)
 
-    def update_label():
-        label.config(text=f"Slider Value : {slider_value}")
-        root.after(100, update_label)  # Schedule the update every 100ms
-    
-    update_label()
+        slider = ttk.Scale(root, from_=0, to=65535, orient="horizontal", length=300, command=make_slider_function(i + 1))
+        slider.pack(pady=10, padx=20)
+        sliders.append(slider)
+
+    def update_labels():
+        for i, label in enumerate(labels):
+            label.config(text=f"Slider {i + 1} Value : {slider_values[i]}")
+        root.after(100, update_labels)
+
+    update_labels()
 
     root.protocol("WM_DELETE_WINDOW", root.quit)  # Properly handle window close
     root.mainloop()
