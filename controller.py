@@ -9,8 +9,8 @@ rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 
 pico = None
-slider_values = [0, 0, 0, 0]
-last_sent_values = [None, None, None, None]
+slider_values = [0, 0, 0, 0, 0]
+last_sent_values = [0, 0, 0, 0, 0]
 
 async def connect_device():
     global pico
@@ -54,11 +54,11 @@ async def periodic_send():
     global last_sent_values, slider_values
 
     while True:
-        for i in range(4):
+        for i in range(5):
             if slider_values[i] != last_sent_values[i]: # Send only if value has changed
                 await send_value(i + 1, slider_values[i])
                 last_sent_values[i] = slider_values[i]
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
 
 def run_tk():
     root = tk.Tk()
@@ -67,7 +67,7 @@ def run_tk():
     labels = []
     sliders = []
 
-    for i in range(4):
+    for i in range(5):
         label = tk.Label(root, text=f"Slider {i + 1} Value : 0")
         label.pack(pady=5)
         labels.append(label)

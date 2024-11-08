@@ -57,17 +57,18 @@ def on_rx(value):
     elif motor == "4":
         top.duty_u16(analog_to_pwm_duty_cycle(number))
     elif motor == "5":
-        if number == 1:
-            hand.duty_u16(analog_to_pwm_duty_cycle(1670))
+        if number > 35000:
+            hand.duty_u16(analog_to_pwm_duty_cycle(1100))
         else:
-            hand.duty_u16(analog_to_pwm_duty_cycle(2500))
+            hand.duty_u16(analog_to_pwm_duty_cycle(5000))
 
 # Enable bluetooth control
 bt.on_write(on_rx)
 
 while True:
     knob_val = knob.read_u16()
-    # base.duty_u16(analog_to_pwm_duty_cycle(knob_val))
+    # hand.duty_u16(analog_to_pwm_duty_cycle(knob_val))
+    # print(knob_val)
     if bt.is_connected():
         led.on()
     else:
