@@ -1,7 +1,6 @@
 import bluetooth
 from machine import Pin, PWM, ADC, UART
 from time import sleep
-from micropython import const
 from ble_setup import BLESimplePeripheral
 
 ble = bluetooth.BLE()
@@ -44,20 +43,20 @@ def analog_to_pwm_duty_cycle(analog_value,  pulse_min=500, pulse_max=2500, pwm_f
 # Whenever we read from the bluetooth module
 def on_rx(value):
     value = value.decode()
-    print(f"RX{value}")
+    print(f"RX {value}")
 
-    motor = value[0]
-    number = int(value[1:])
+    motor = value.split(":")[0]
+    number = int(value.split(":")[1])
 
-    if motor == "a":
+    if motor == "1":
         base.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "b":
+    elif motor == "2":
         bottom.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "c":
+    elif motor == "3":
         middle.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "d":
+    elif motor == "4":
         top.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "h":
+    elif motor == "5":
         if number == 1:
             hand.duty_u16(analog_to_pwm_duty_cycle(1670))
         else:
