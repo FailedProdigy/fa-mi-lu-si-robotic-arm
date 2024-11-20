@@ -1,5 +1,5 @@
 import bluetooth
-from machine import Pin, PWM, ADC, UART
+from machine import Pin, PWM, ADC
 from time import sleep
 from ble_setup import BLESimplePeripheral
 
@@ -58,7 +58,7 @@ def on_rx(value):
         top.duty_u16(analog_to_pwm_duty_cycle(number))
     elif motor == "5":
         if number > 35000:
-            hand.duty_u16(analog_to_pwm_duty_cycle(1100))
+            hand.duty_u16(analog_to_pwm_duty_cycle(0))
         else:
             hand.duty_u16(analog_to_pwm_duty_cycle(5000))
 

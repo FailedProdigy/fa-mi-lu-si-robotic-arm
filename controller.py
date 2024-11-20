@@ -58,7 +58,7 @@ async def periodic_send():
             if slider_values[i] != last_sent_values[i]: # Send only if value has changed
                 await send_value(i + 1, slider_values[i])
                 last_sent_values[i] = slider_values[i]
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
 
 def run_tk():
     root = tk.Tk()
