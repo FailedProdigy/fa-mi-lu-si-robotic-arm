@@ -14,9 +14,9 @@ A remoteley controlled robotic arm, using servo motors and the raspberry pi pico
 
 ### On the controlling device 
 
-Ienstall the bleak module on the host machine,
+Install the bleak module on the host machine,
 
-`pip install bleak` should do
+`pip install bleak` should do.
 
 Make sure you have tkinter installed.
 Run controller.py, it will first connect to the arm then open an interface to control it from.
