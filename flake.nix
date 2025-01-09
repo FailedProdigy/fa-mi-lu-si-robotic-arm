@@ -22,8 +22,10 @@
         packages = with pkgs; [
           python3
           python3Packages.bleak
+          python3Packages.tkinter
           ruff
           mpremote
+          rshell
         ];
 
         shellHook = ''
