@@ -23,6 +23,9 @@
           python3
           python3Packages.bleak
           python3Packages.tkinter
+          python3Packages.python-lsp-server
+          python3Packages.python-lsp-ruff
+          python3Packages.pylsp-rope
           ruff
           mpremote
           rshell
