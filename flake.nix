@@ -6,7 +6,7 @@
   };
 
   outputs = {
-    self,
+    # self,
     nixpkgs,
     ...
   }: let
@@ -18,20 +18,64 @@
         inherit system;
       };
     in
-      pkgs.mkShell {
-        packages = with pkgs; [
-          python3
+      pkgs.mkShell rec {
+        name = "impurePythonEnv";
+        venvDir = "./.venv";
+
+        buildInputs = with pkgs; [
+          python3Packages.python
+          python3Packages.venvShellHook
+
           python3Packages.bleak
           python3Packages.tkinter
           python3Packages.python-lsp-server
           python3Packages.python-lsp-ruff
           python3Packages.pylsp-rope
+
+          (python3Packages.opencv4.override {
+            enableGtk3 = true;
+            enableGtk2 = false;
+          })
+
+          stdenv.cc.cc.lib
+          gtk3
+          # zlib
+          libz
+          glib
+          fontconfig
+          freetype
+          libGL
+
+          ffmpeg
+          xorg.libXext
+          xorg.libXrender
+
+          xorg.libxcb
+          xorg.libX11
+          xorg.xcbutil
+          xorg.xcbutilwm
+          xorg.xcbutilimage
+          xorg.xcbutilkeysyms
+          xorg.xcbutilrenderutil
+
           ruff
           mpremote
           rshell
         ];
 
-        shellHook = ''
+        LD_LIBRARY_PATH = with pkgs;
+          lib.makeLibraryPath ([
+            ]
+            ++ buildInputs);
+
+        postVenvCreation = ''
+          unset SOURCE_DATE_EPOCH
+          pip install -r requirements.txt
+        '';
+
+        postShellHook = ''
+          # allow pip to install wheels
+          unset SOURCE_DATE_EPOCH
         '';
       };
   };
