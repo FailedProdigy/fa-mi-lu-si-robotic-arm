@@ -1,5 +1,6 @@
 import cv2
 
+from dataclasses import dataclass, asdict
 import asyncio
 from bleak import BleakScanner, BleakClient
 
@@ -12,7 +13,21 @@ rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 
 
-x = 0
+def lerp(a, b, t):
+    return (1 - t) * a + t * b
+
+
+@dataclass
+class Robot:
+    base: int = 36463
+    bottom: int = 44593
+    middle: int = 500
+    top: int = 52230
+    hand: int = 0  # uses 65535 / 2 as the threshold
+
+
+robot = Robot()
+
 
 async def find_device():
     devices = await BleakScanner.discover()
@@ -25,15 +40,14 @@ async def find_device():
     return None
 
 
-async def send_value(pico, motor_index, value):
+async def send_data(pico: BleakClient):
     if pico and pico.is_connected:
         try:
-            await pico.write_gatt_char(tx_uuid, f"{motor_index}:{value}".encode())
-            print(f"Sent value {motor_index}:{value}")
+            for motor_name, value in asdict(robot).items():
+                await pico.write_gatt_char(tx_uuid, f"{motor_name}:{value}".encode())
+                print(f"Sent value {motor_name}:{value}")
         except Exception as e:
-            print(f"Failed to send value \n {e}")
-    else:
-        print(f"Pico not connected but here's the command: {motor_index} {value}")
+            print(f"Failed to send data {e}")
 
 
 async def process_frame(hands, frame):
@@ -46,7 +60,6 @@ async def process_frame(hands, frame):
 
 
 async def run_handtracking():
-    global x
     cap = cv2.VideoCapture(index=0)
 
     with mp_hands.Hands(
@@ -64,7 +77,7 @@ async def run_handtracking():
 
             # Check the frame for hands
             results = await process_frame(hands, frame)
-            
+
             if results.multi_hand_landmarks:
                 # Draw the hand annotations on the image
                 for hand_landmarks in results.multi_hand_landmarks:
@@ -76,20 +89,26 @@ async def run_handtracking():
                         connection_drawing_spec=mp_drawing_styles.get_default_hand_connections_style(),
                     )
 
-                    x = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].x
-
+                    robot.base = int(
+                        (1 - hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].x)
+                        * 65535
+                    )
+                    robot.bottom = int(
+                        (1 - hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].y)
+                        * 65535
+                    )
 
             # Display debug info
             frame = cv2.flip(frame, 1)
             cv2.putText(
-                frame,                        # Frame to draw on
-                f"{x}",                       # Text to display
-                (10, 30),                     # Position (x, y)
-                cv2.FONT_HERSHEY_SIMPLEX,     # Font
-                0.5,                            # Font size (scale)
-                (0, 255, 0),                  # Text color (BGR - green here)
-                1,                            # Thickness of the text
-                cv2.LINE_AA                   # Line type for better rendering
+                frame,  # Frame to draw on
+                f"{robot.base}",  # Text to display
+                (10, 30),  # Position (x, y)
+                cv2.FONT_HERSHEY_SIMPLEX,  # Font
+                0.5,  # Font size (scale)
+                (0, 255, 0),  # Text color (BGR - green here)
+                1,  # Thickness of the text
+                cv2.LINE_AA,  # Line type for better rendering
             )
 
             await asyncio.to_thread(cv2.imshow, "Hand Tracking", frame)
@@ -103,17 +122,16 @@ async def run_handtracking():
 
 async def main():
     pico_device = await find_device()
+    if not pico_device:
+        return
     async with BleakClient(pico_device) as pico:
         handtracking_task = asyncio.create_task(run_handtracking())
 
         async def sending_task():
             while not handtracking_task.done():
-                await send_value(pico, 1, int((1-x) * 65535))
+                await send_data(pico)
 
-        await asyncio.gather(
-            handtracking_task,
-            asyncio.create_task(sending_task())
-        )
+        await asyncio.gather(handtracking_task, asyncio.create_task(sending_task()))
 
 
 if __name__ == "__main__":

@@ -9,7 +9,8 @@ rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 
 pico = None
-slider_values = [0, 0, 0, 0, 0]
+names = ["base" ,"bottom" ,"middle" ,"top" ,"hand"]
+slider_values = [36463, 44593, 500, 52230, 0]
 last_sent_values = [0, 0, 0, 0, 0]
 
 async def connect_device():
@@ -38,8 +39,8 @@ async def connect_device():
 async def send_value(slider_num, value):
     if pico and pico.is_connected:
         try:
-            await pico.write_gatt_char(tx_uuid, f"{slider_num}:{value}".encode())
-            print(f"Sent value {slider_num}:{value}")
+            await pico.write_gatt_char(tx_uuid, f"{names[slider_num]}:{value}".encode())
+            print(f"Sent value {names[slider_num]}:{value}")
         except Exception as e:
             print(f"Failed to send value \n {e}")
     else:
@@ -47,7 +48,7 @@ async def send_value(slider_num, value):
 
 def make_slider_function(slider_num):
     def on_slider_change(value):
-        slider_values[slider_num - 1] = int(float(value))
+        slider_values[slider_num] = int(float(value))
     return on_slider_change
 
 async def periodic_send():
@@ -56,7 +57,7 @@ async def periodic_send():
     while True:
         for i in range(5):
             if slider_values[i] != last_sent_values[i]: # Send only if value has changed
-                await send_value(i + 1, slider_values[i])
+                await send_value(i, slider_values[i])
                 last_sent_values[i] = slider_values[i]
         await asyncio.sleep(0.05)
 
@@ -68,17 +69,17 @@ def run_tk():
     sliders = []
 
     for i in range(5):
-        label = tk.Label(root, text=f"Slider {i + 1} Value : 0")
+        label = tk.Label(root, text=f"Slider {names[i]} Value : 0")
         label.pack(pady=5)
         labels.append(label)
 
-        slider = ttk.Scale(root, from_=0, to=65535, orient="horizontal", length=300, command=make_slider_function(i + 1))
+        slider = ttk.Scale(root, from_=0, to=65535, value=slider_values[i],orient="horizontal", length=300, command=make_slider_function(i))
         slider.pack(pady=10, padx=20)
         sliders.append(slider)
 
     def update_labels():
         for i, label in enumerate(labels):
-            label.config(text=f"Slider {i + 1} Value : {slider_values[i]}")
+            label.config(text=f"Slider {names[i]} Value : {slider_values[i]}")
         root.after(100, update_labels)
 
     update_labels()

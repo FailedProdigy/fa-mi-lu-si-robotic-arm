@@ -48,19 +48,19 @@ def on_rx(value):
     motor = value.split(":")[0]
     number = int(value.split(":")[1])
 
-    if motor == "1":
+    if motor == "base":
         base.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "2":
+    elif motor == "bottom":
         bottom.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "3":
+    elif motor == "middle":
         middle.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "4":
+    elif motor == "top":
         top.duty_u16(analog_to_pwm_duty_cycle(number))
-    elif motor == "5":
-        if number > 35000:
-            hand.duty_u16(analog_to_pwm_duty_cycle(0))
-        else:
+    elif motor == "hand":
+        if number > 65535/2:
             hand.duty_u16(analog_to_pwm_duty_cycle(5000))
+        else:
+            hand.duty_u16(analog_to_pwm_duty_cycle(0))
 
 # Enable bluetooth control
 bt.on_write(on_rx)
