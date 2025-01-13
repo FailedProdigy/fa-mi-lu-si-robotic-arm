@@ -4,6 +4,8 @@ from dataclasses import dataclass, asdict
 import asyncio
 from bleak import BleakScanner, BleakClient
 
+import numpy as np
+
 import mediapipe.python.solutions.hands as mp_hands
 import mediapipe.python.solutions.drawing_utils as mp_drawing
 import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
@@ -17,12 +19,25 @@ def lerp(a, b, t):
     return (1 - t) * a + t * b
 
 
+def landmark_to_np(item):
+    return np.array([item.x, item.y, item.z])
+
+
+def angle_between(v1, v2):
+    cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    return np.arccos(np.clip(cos_angle, -1.0, 1.0))
+
+
+def distance_between(v1, v2):
+    return np.linalg.norm(v1 - v2)
+
+
 @dataclass
 class Robot:
     base: int = 36463
     bottom: int = 44593
-    middle: int = 500
-    top: int = 52230
+    middle: int = 18477
+    top: int = 41390
     hand: int = 0  # uses 65535 / 2 as the threshold
 
 
@@ -79,8 +94,8 @@ async def run_handtracking():
             results = await process_frame(hands, frame)
 
             if results.multi_hand_landmarks:
-                # Draw the hand annotations on the image
                 for hand_landmarks in results.multi_hand_landmarks:
+                    # Draw the hand annotations on the image
                     mp_drawing.draw_landmarks(
                         image=frame,
                         landmark_list=hand_landmarks,
@@ -89,24 +104,38 @@ async def run_handtracking():
                         connection_drawing_spec=mp_drawing_styles.get_default_hand_connections_style(),
                     )
 
-                    robot.base = int(
-                        (1 - hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].x)
-                        * 65535
-                    )
-                    robot.bottom = int(
-                        (1 - hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].y)
-                        * 65535
+                    
+                    wrist = landmark_to_np(
+                        hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
                     )
 
+                    robot.base = int((1 - wrist[0]) * 65535)
+                    robot.bottom = int((1 - wrist[1]) * 65535)
+
+            if results.multi_hand_world_landmarks:
+                for hand_landmarks in results.multi_hand_world_landmarks:
+                    index_finger_tip = landmark_to_np(
+                        hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    )
+                    thumb_tip = landmark_to_np(
+                        hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                    )
+
+                    
+                    robot.hand = {
+                        False: int(1/4 * 65535),
+                        True: int(3/4 * 65535)
+                    }.get(distance_between(index_finger_tip, thumb_tip) > 0.05)
+                    
             # Display debug info
             frame = cv2.flip(frame, 1)
             cv2.putText(
                 frame,  # Frame to draw on
-                f"{robot.base}",  # Text to display
+                f"{robot}",  # Text to display
                 (10, 30),  # Position (x, y)
                 cv2.FONT_HERSHEY_SIMPLEX,  # Font
                 0.5,  # Font size (scale)
-                (0, 255, 0),  # Text color (BGR - green here)
+                (0, 0, 0),  # Text color (BGR - green here)
                 1,  # Thickness of the text
                 cv2.LINE_AA,  # Line type for better rendering
             )
