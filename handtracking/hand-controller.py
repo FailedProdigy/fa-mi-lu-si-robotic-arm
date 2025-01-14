@@ -1,14 +1,13 @@
-import cv2
-
-from dataclasses import dataclass, asdict
 import asyncio
-from bleak import BleakScanner, BleakClient
+from dataclasses import asdict, dataclass
 
-import numpy as np
-
-import mediapipe.python.solutions.hands as mp_hands
-import mediapipe.python.solutions.drawing_utils as mp_drawing
+import cv2
 import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
+import mediapipe.python.solutions.drawing_utils as mp_drawing
+import mediapipe.python.solutions.hands as mp_hands
+import numpy as np
+import math
+from bleak import BleakClient, BleakScanner
 
 uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -120,8 +119,13 @@ async def run_handtracking():
                     thumb_tip = landmark_to_np(
                         hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
                     )
+                    pinky_mcp = landmark_to_np(
+                        hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP]
+                    )
 
-                    
+                    # IMPORTANT : SWITCH TO CALCULATING THE SLOPE INSTEAD
+                    robot.top = int(angle_between(pinky_mcp, np.where(np.arange(3) == 2, 0, pinky_mcp)) / (1/2 * math.pi) * 65535)
+
                     robot.hand = {
                         False: int(1/4 * 65535),
                         True: int(3/4 * 65535)
