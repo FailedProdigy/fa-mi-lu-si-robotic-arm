@@ -2,20 +2,17 @@ import asyncio
 from dataclasses import asdict, dataclass
 
 import cv2
-import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
-import mediapipe.python.solutions.drawing_utils as mp_drawing
-import mediapipe.python.solutions.hands as mp_hands
+import mediapipe as mp
+from mediapipe import solutions
+from mediapipe.framework.formats import landmark_pb2
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 import numpy as np
-import math
 from bleak import BleakClient, BleakScanner
 
 uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-
-
-def lerp(a, b, t):
-    return (1 - t) * a + t * b
 
 
 def landmark_to_np(item):
@@ -29,6 +26,34 @@ def angle_between(v1, v2):
 
 def distance_between(v1, v2):
     return np.linalg.norm(v1 - v2)
+
+
+def draw_landmarks_on_image(rgb_image, detection_result):
+    hand_landmarks_list = detection_result.hand_landmarks
+    annotated_image = np.copy(rgb_image)
+
+    # Loop through the detected hands to visualize.
+    for idx in range(len(hand_landmarks_list)):
+        hand_landmarks = hand_landmarks_list[idx]
+
+        # Draw the hand landmarks.
+        hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+        hand_landmarks_proto.landmark.extend(
+            [
+                landmark_pb2.NormalizedLandmark(
+                    x=landmark.x, y=landmark.y, z=landmark.z
+                )
+                for landmark in hand_landmarks
+            ]
+        )
+        solutions.drawing_utils.draw_landmarks(
+            annotated_image,
+            hand_landmarks_proto,
+            solutions.hands.HAND_CONNECTIONS,
+            solutions.drawing_styles.get_default_hand_landmarks_style(),
+            solutions.drawing_styles.get_default_hand_connections_style(),
+        )
+    return annotated_image
 
 
 @dataclass
@@ -57,17 +82,22 @@ async def find_device():
 async def send_data(pico: BleakClient):
     if pico and pico.is_connected:
         try:
-            for motor_name, value in asdict(robot).items():
+            for motor_name, value in asdict(robot).items():  # type: ignore
                 await pico.write_gatt_char(tx_uuid, f"{motor_name}:{value}".encode())
                 print(f"Sent value {motor_name}:{value}")
         except Exception as e:
             print(f"Failed to send data {e}")
 
 
-async def process_frame(hands, frame):
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+base_options = python.BaseOptions(model_asset_path="hand_landmarker.task")
+options = vision.HandLandmarkerOptions(base_options=base_options, num_hands=1)
+detector = vision.HandLandmarker.create_from_options(options)
+
+
+async def process_frame(detector, frame_rgb):
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
     results = await asyncio.to_thread(
-        hands.process, frame_rgb
+        detector.detect, mp_image
     )  # Offload processing to a thread
 
     return results
@@ -76,84 +106,78 @@ async def process_frame(hands, frame):
 async def run_handtracking():
     cap = cv2.VideoCapture(index=0)
 
-    with mp_hands.Hands(
-        model_complexity=0,
-        max_num_hands=1,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
-    ) as hands:
-        while cap.isOpened():
-            success, frame = cap.read()
-            if not success:
-                print("Ignoring empty camera frame...")
-                await asyncio.sleep(0.01)
-                continue
+    while cap.isOpened():
+        success, frame = cap.read()
+        if not success:
+            print("Ignoring empty camera frame...")
+            await asyncio.sleep(0.01)
+            continue
 
-            # Check the frame for hands
-            results = await process_frame(hands, frame)
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    # Draw the hand annotations on the image
-                    mp_drawing.draw_landmarks(
-                        image=frame,
-                        landmark_list=hand_landmarks,
-                        connections=mp_hands.HAND_CONNECTIONS,
-                        landmark_drawing_spec=mp_drawing_styles.get_default_hand_landmarks_style(),
-                        connection_drawing_spec=mp_drawing_styles.get_default_hand_connections_style(),
-                    )
+        # Check the frame for hands
+        result = await process_frame(detector, image)
 
-                    
-                    wrist = landmark_to_np(
-                        hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-                    )
+        # Commented out the robot calculations for now, will move them later
+        if result.hand_landmarks:
+            for hand_landmark in result.hand_landmarks:
+                wrist = landmark_to_np(
+                    hand_landmark[solutions.hands.HandLandmark.WRIST]
+                )
 
-                    robot.base = int((1 - wrist[0]) * 65535)
-                    robot.bottom = int((1 - wrist[1]) * 65535)
+                robot.base = int((1 - wrist[0]) * 65535)
+                robot.bottom = int((1 - wrist[1]) * 65535)
 
-            if results.multi_hand_world_landmarks:
-                for hand_landmarks in results.multi_hand_world_landmarks:
-                    index_finger_tip = landmark_to_np(
-                        hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    )
-                    thumb_tip = landmark_to_np(
-                        hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
-                    )
-                    pinky_mcp = landmark_to_np(
-                        hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP]
-                    )
+        if result.hand_world_landmarks:
+            for hand_landmark in result.hand_world_landmarks:
+                index_finger_tip = landmark_to_np(
+                    hand_landmark[solutions.hands.HandLandmark.INDEX_FINGER_TIP]
+                )
+                thumb_tip = landmark_to_np(
+                    hand_landmark[solutions.hands.HandLandmark.THUMB_TIP]
+                )
+                # pinky_mcp = landmark_to_np(
+                #     hand_landmarks.landmark[solutions.hands.HandLandmark.PINKY_MCP]
+                # )
 
-                    # IMPORTANT : SWITCH TO CALCULATING THE SLOPE INSTEAD
-                    robot.top = int(angle_between(pinky_mcp, np.where(np.arange(3) == 2, 0, pinky_mcp)) / (1/2 * math.pi) * 65535)
+                # IMPORTANT : SWITCH TO CALCULATING THE SLOPE INSTEAD
+                # robot.top = int(angle_between(pinky_mcp, np.where(np.arange(3) == 2, 0, pinky_mcp)) / (1/2 * math.pi) * 65535)
 
-                    robot.hand = {
-                        False: int(1/4 * 65535),
-                        True: int(3/4 * 65535)
-                    }.get(distance_between(index_finger_tip, thumb_tip) > 0.05)
-                    
-            # Display debug info
-            frame = cv2.flip(frame, 1)
-            cv2.putText(
-                frame,  # Frame to draw on
-                f"{robot}",  # Text to display
-                (10, 30),  # Position (x, y)
-                cv2.FONT_HERSHEY_SIMPLEX,  # Font
-                0.5,  # Font size (scale)
-                (0, 0, 0),  # Text color (BGR - green here)
-                1,  # Thickness of the text
-                cv2.LINE_AA,  # Line type for better rendering
-            )
+                robot.hand = {
+                    False: int(1 / 4 * 65535),
+                    True: int(3 / 4 * 65535),
+                }.get(bool(distance_between(index_finger_tip, thumb_tip) > 0.05), 0)
 
-            await asyncio.to_thread(cv2.imshow, "Hand Tracking", frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-            await asyncio.sleep(0.001)
+        # Draw the hands
+        annotated_image = draw_landmarks_on_image(frame, result)
+        # Display debug info
+        annotated_image = cv2.flip(annotated_image, 1)
+
+        cv2.putText(
+            annotated_image,  # Frame to draw on
+            f"{robot}",  # Text to display
+            (10, 30),  # Position (x, y)
+            cv2.FONT_HERSHEY_SIMPLEX,  # Font
+            0.5,  # Font size (scale)
+            (0, 0, 0),  # Text color (BGR - green here)
+            1,  # Thickness of the text
+            cv2.LINE_AA,  # Line type for better rendering
+        )
+
+        await asyncio.to_thread(cv2.imshow, "Hand Tracking", annotated_image)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+        await asyncio.sleep(0.001)
 
     cap.release()
     cv2.destroyAllWindows()
 
 
 async def main():
+    # TODO: make the handtracking not crash when the pico is disconnected
+    # move the BleakClient contextmanager inside the sending_task()
+    # also mive the find_device() stuff into the sending_task so we don't
+    
     pico_device = await find_device()
     if not pico_device:
         return
