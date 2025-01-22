@@ -61,6 +61,7 @@
           ruff
           mpremote
           rshell
+          arduino-cli
         ];
 
         LD_LIBRARY_PATH = with pkgs;

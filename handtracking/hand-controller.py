@@ -9,10 +9,11 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import numpy as np
 from bleak import BleakClient, BleakScanner
+import json
 
-uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+# uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+# rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+tx_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
 
 def landmark_to_np(item):
@@ -72,7 +73,7 @@ async def find_device():
     devices = await BleakScanner.discover()
 
     for device in devices:
-        if device.name == "mpy-uart":
+        if device.name == "HC-08":
             return device
 
     print("Couldn't find robotic arm")
@@ -80,13 +81,14 @@ async def find_device():
 
 
 async def send_data(pico: BleakClient):
-    if pico and pico.is_connected:
-        try:
+    try:
+        if pico and pico.is_connected:
             for motor_name, value in asdict(robot).items():  # type: ignore
-                await pico.write_gatt_char(tx_uuid, f"{motor_name}:{value}".encode())
+                await pico.write_gatt_char(tx_uuid, f"{motor_name}:{value}\n".encode(), response=True)
                 print(f"Sent value {motor_name}:{value}")
-        except Exception as e:
-            print(f"Failed to send data {e}")
+                # await asyncio.sleep(1)
+    except Exception as e:
+        print(f"Failed to send data {e}")
 
 
 base_options = python.BaseOptions(model_asset_path="hand_landmarker.task")
@@ -174,21 +176,20 @@ async def run_handtracking():
 
 
 async def main():
-    # TODO: make the handtracking not crash when the pico is disconnected
-    # move the BleakClient contextmanager inside the sending_task()
-    # also mive the find_device() stuff into the sending_task so we don't
-    
-    pico_device = await find_device()
-    if not pico_device:
-        return
-    async with BleakClient(pico_device) as pico:
-        handtracking_task = asyncio.create_task(run_handtracking())
+    handtracking_task = asyncio.create_task(run_handtracking())
 
-        async def sending_task():
-            while not handtracking_task.done():
+    async def sending_task(other_task):
+        pico_device = await find_device()
+        if not pico_device:
+            return
+
+        async with BleakClient(pico_device) as pico:
+            while not other_task.done():
                 await send_data(pico)
 
-        await asyncio.gather(handtracking_task, asyncio.create_task(sending_task()))
+    await asyncio.gather(
+        handtracking_task, asyncio.create_task(sending_task(handtracking_task))
+    )
 
 
 if __name__ == "__main__":
