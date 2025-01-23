@@ -12,6 +12,35 @@ Servo hand;
 String bt_rx;
 int ledpin = 13;
 
+void processMotorCommand(String value) {
+  int colonPos = bt_rx.indexOf(':');
+  if (colonPos == -1) {
+   Serial.println("Invalid format");
+   return;
+  }
+
+  String motor = value.substring(0,colonPos);
+  int number = (value.substring(colonPos + 1).toInt() / 65535.0 * 200);
+  // int number = value.substring(colonPos + 1).toInt();
+  Serial.println(number);
+
+  if (motor == "base"){
+    base.write(number);
+  }
+  if (motor == "bottom"){
+    bottom.write(number);
+  }
+  if (motor == "middle"){
+    middle.write(number);
+  }
+  if (motor == "top"){
+    top.write(number);
+  }
+  if (motor == "hand"){
+    hand.write(number);
+  }
+}
+
 void setup() {
   base.attach(10);
   bottom.attach(9);
@@ -24,32 +53,12 @@ void setup() {
   btSerial.begin(9600);
 }
 
-void loop() {
-  
-  // base.write(150);
-  // bottom.write(150);
-  // middle.write(150);
-  // top.write(150);
-  // hand.write(150);
-
-  
-  // if (Serial.available() > 0) {
-  //   String value = Serial.readStringUntil('\n');
-  //   int num = value.toInt();
-  //   base.write(num);
-  // }
+void loop() {  
   if (btSerial.available()) {
     bt_rx = btSerial.readStringUntil('\n');
-    // bt_rx = btSerial.readString();
     Serial.print("Received:");
     Serial.println(bt_rx);
-    if (bt_rx == "led_on") {
-      digitalWrite(ledpin, HIGH);
-      // btSerial.println("LED turned on");
-    }
-    if (bt_rx == "led_off") {
-      digitalWrite(ledpin, LOW);
-      // btSerial.println("LED turned off");
-    }
+
+    processMotorCommand(bt_rx);
   }
 }
