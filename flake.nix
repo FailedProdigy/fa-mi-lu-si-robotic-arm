@@ -59,8 +59,6 @@
           xorg.xcbutilrenderutil
 
           ruff
-          mpremote
-          rshell
           arduino-cli
         ];
 

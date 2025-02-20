@@ -1,8 +1,6 @@
 # Robotic Arm
 
-A remoteley controlled robotic arm, using servo motors and the raspberry pi pico w.
-
-![A picture of the project](image.jpg)
+A remoteley controlled robotic arm, using servo motors and the sciency dipduino.
 
 ## Requirements
 
@@ -10,20 +8,24 @@ A remoteley controlled robotic arm, using servo motors and the raspberry pi pico
 
 - the robotic arm 3d print source files
 
-![Circuit Diagram](Schematic.svg)
+![Circuit Diagram](./Schematic/schematic.svg)
+![On a breadboard](./Schematic/breadboard.svg)
 
 ### On the controlling device 
 
 Install the bleak module on the host machine,
 
-`pip install bleak` should do.
+This should do. Or use the nix flake devshell.
+```shell
+pip install bleak
+pip install mediapipe
+```
 
 Make sure you have tkinter installed.
 Run controller.py, it will first connect to the arm then open an interface to control it from.
 
-### For the pico
+### On the arduino
 
-upload ble_setup.py ble_advertising.py and main.py to the pico.
-the ble code is from https://github.com/raspberrypi/pico-micropython-examples/tree/master/bluetooth
+Compile and upload the arduino.ino sketch
 
 ## [Licences](LICENSE.md)
