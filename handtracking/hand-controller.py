@@ -10,8 +10,6 @@ from mediapipe.tasks.python import vision
 import numpy as np
 from bleak import BleakClient, BleakScanner
 
-# uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-# rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 tx_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
 
@@ -58,11 +56,11 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
 @dataclass
 class Robot:
-    base: int = 36463
-    bottom: int = 44593
-    middle: int = 18477
-    top: int = 41390
-    hand: int = 0  # uses 65535 / 2 as the threshold
+    base: int = 100
+    bottom: int = 100
+    middle: int = 100
+    top: int = 100
+    hand: int = 20
 
 
 robot = Robot()
@@ -126,8 +124,8 @@ async def run_handtracking():
                     hand_landmark[solutions.hands.HandLandmark.WRIST]
                 )
 
-                robot.base = int((1 - wrist[0]) * 65535)
-                robot.bottom = int((1 - wrist[1]) * 65535)
+                robot.base = int((1 - wrist[0]) * 300)
+                robot.bottom = int((1 - wrist[1]) * 300)
 
         if result.hand_world_landmarks:
             for hand_landmark in result.hand_world_landmarks:
@@ -142,11 +140,11 @@ async def run_handtracking():
                 # )
 
                 # IMPORTANT : SWITCH TO CALCULATING THE SLOPE INSTEAD
-                # robot.top = int(angle_between(pinky_mcp, np.where(np.arange(3) == 2, 0, pinky_mcp)) / (1/2 * math.pi) * 65535)
+                # robot.top = int(angle_between(pinky_mcp, np.where(np.arange(3) == 2, 0, pinky_mcp)) / (1/2 * math.pi) * 300)
 
                 robot.hand = {
-                    False: int(1 / 4 * 65535),
-                    True: int(3 / 4 * 65535),
+                    False: int(1 / 4 * 300),
+                    True: int(3 / 4 * 300),
                 }.get(bool(distance_between(index_finger_tip, thumb_tip) > 0.05), 0)
 
         # Draw the hands

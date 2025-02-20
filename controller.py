@@ -4,13 +4,11 @@ from bleak import BleakScanner, BleakClient
 import tkinter as tk
 from tkinter import ttk
 
-uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-rx_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-tx_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+tx_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
 pico = None
 names = ["base" ,"bottom" ,"middle" ,"top" ,"hand"]
-slider_values = [36463, 44593, 500, 52230, 0]
+slider_values = [100, 100, 100, 100, 0]
 last_sent_values = [0, 0, 0, 0, 0]
 
 async def connect_device():
@@ -19,7 +17,7 @@ async def connect_device():
     pico_device = None
 
     for device in devices:
-        if device.name == "mpy-uart":
+        if device.name == "HC-08":
             pico_device = device
             break
 
@@ -39,7 +37,7 @@ async def connect_device():
 async def send_value(slider_num, value):
     if pico and pico.is_connected:
         try:
-            await pico.write_gatt_char(tx_uuid, f"{names[slider_num]}:{value}".encode())
+            await pico.write_gatt_char(tx_uuid, f"{names[slider_num]}:{value}".encode(), response=True)
             print(f"Sent value {names[slider_num]}:{value}")
         except Exception as e:
             print(f"Failed to send value \n {e}")
@@ -59,7 +57,7 @@ async def periodic_send():
             if slider_values[i] != last_sent_values[i]: # Send only if value has changed
                 await send_value(i, slider_values[i])
                 last_sent_values[i] = slider_values[i]
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.1)
 
 def run_tk():
     root = tk.Tk()
@@ -73,7 +71,7 @@ def run_tk():
         label.pack(pady=5)
         labels.append(label)
 
-        slider = ttk.Scale(root, from_=0, to=65535, value=slider_values[i],orient="horizontal", length=300, command=make_slider_function(i))
+        slider = ttk.Scale(root, from_=0, to=300, value=slider_values[i],orient="horizontal", length=300, command=make_slider_function(i))
         slider.pack(pady=10, padx=20)
         sliders.append(slider)
 

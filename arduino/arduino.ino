@@ -20,8 +20,7 @@ void processMotorCommand(String value) {
   }
 
   String motor = value.substring(0,colonPos);
-  int number = (value.substring(colonPos + 1).toInt() / 65535.0 * 200);
-  // int number = value.substring(colonPos + 1).toInt();
+  int number = value.substring(colonPos + 1).toInt();
   Serial.println(number);
 
   if (motor == "base"){
